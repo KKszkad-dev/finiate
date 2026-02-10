@@ -1,0 +1,10 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+domain = { path = "../domain" }
+jiff = "0.2.19"
+storage = { path = "../storage" }
+tokio = { version = "1.49.0", features = ["full"] }

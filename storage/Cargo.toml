@@ -1,0 +1,12 @@
+[package]
+name = "storage"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jiff = "0.2.18"
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite"] }
+tokio = { version = "1.49.0", features = ["full"] }
+uuid = { version = "1.20.0", features = ["v7"] }
+domain = { path = "../domain" }
+async-trait = "0.1.89"

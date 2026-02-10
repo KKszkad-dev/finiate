@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "storage",
+    "domain",
+    "cli",
+]
+resolver = "3"
