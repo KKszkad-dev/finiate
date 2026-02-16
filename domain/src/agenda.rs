@@ -4,7 +4,7 @@ use std::error::Error;
 use uuid::Uuid;
 
 pub enum AgendaStatus {
-    Stored,
+    Pending,
     Ongoing,
     Terminated,
 }
@@ -12,7 +12,7 @@ pub enum AgendaStatus {
 impl AgendaStatus {
     pub fn to_string(&self) -> String {
         match self {
-            AgendaStatus::Stored => "stored".to_string(),
+            AgendaStatus::Pending => "pending".to_string(),
             AgendaStatus::Ongoing => "ongoing".to_string(),
             AgendaStatus::Terminated => "terminated".to_string(),
         }

@@ -94,7 +94,7 @@ impl AgendaRepo for SqliteAgendaRepo {
             id: Uuid::parse_str(&db_agenda.id).expect("invalid uuid in database"),
             title: db_agenda.title,
             agenda_status: match db_agenda.agenda_status.as_str() {
-                "stored" => AgendaStatus::Stored,
+                "pending" => AgendaStatus::Pending,
                 "ongoing" => AgendaStatus::Ongoing,
                 "terminated" => AgendaStatus::Terminated,
                 _ => panic!("invalid agenda_status in database"),
@@ -118,7 +118,7 @@ impl AgendaRepo for SqliteAgendaRepo {
                 id: Uuid::parse_str(&db_agenda.id).expect("invalid uuid in database"),
                 title: db_agenda.title,
                 agenda_status: match db_agenda.agenda_status.as_str() {
-                    "stored" => AgendaStatus::Stored,
+                    "pending" => AgendaStatus::Pending,
                     "ongoing" => AgendaStatus::Ongoing,
                     "terminated" => AgendaStatus::Terminated,
                     _ => panic!("invalid agenda_status in database"),
@@ -152,7 +152,7 @@ impl AgendaRepo for SqliteAgendaRepo {
                 id: Uuid::parse_str(&db_agenda.id).expect("invalid uuid in database"),
                 title: db_agenda.title,
                 agenda_status: match db_agenda.agenda_status.as_str() {
-                    "stored" => AgendaStatus::Stored,
+                    "pending" => AgendaStatus::Pending,
                     "ongoing" => AgendaStatus::Ongoing,
                     "terminated" => AgendaStatus::Terminated,
                     _ => panic!("invalid agenda_status in database"),
@@ -196,7 +196,7 @@ impl AgendaRepo for SqliteAgendaRepo {
                 id: Uuid::parse_str(&db_agenda.id).expect("invalid uuid in database"),
                 title: db_agenda.title,
                 agenda_status: match db_agenda.agenda_status.as_str() {
-                    "stored" => AgendaStatus::Stored,
+                    "pending" => AgendaStatus::Pending,
                     "ongoing" => AgendaStatus::Ongoing,
                     "terminated" => AgendaStatus::Terminated,
                     _ => panic!("invalid agenda_status in database"),
@@ -287,7 +287,7 @@ mod tests {
         let terminate_at = Timestamp::now();
         let agenda = AgendaCreate {
             title: "To be deleted".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         let agenda_id = repo.create_agenda(&agenda).await.expect("create agenda");
@@ -377,7 +377,7 @@ mod tests {
         let terminate_at = Timestamp::now();
         let agenda = AgendaCreate {
             title: "Original".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         let agenda_id = repo.create_agenda(&agenda).await.expect("create agenda");
@@ -417,7 +417,7 @@ mod tests {
         let original_terminate = Timestamp::now();
         let agenda = AgendaCreate {
             title: "Original".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at: original_terminate,
         };
         let agenda_id = repo.create_agenda(&agenda).await.expect("create agenda");
@@ -572,7 +572,7 @@ mod tests {
 
         // test all status types
         let statuses = vec![
-            AgendaStatus::Stored,
+            AgendaStatus::Pending,
             AgendaStatus::Ongoing,
             AgendaStatus::Terminated,
         ];
@@ -593,7 +593,7 @@ mod tests {
                 .expect("agenda should exist");
 
             match (&fetched.agenda_status, idx) {
-                (AgendaStatus::Stored, 0) => {}
+                (AgendaStatus::Pending, 0) => {}
                 (AgendaStatus::Ongoing, 1) => {}
                 (AgendaStatus::Terminated, 2) => {}
                 _ => panic!("status mismatch at index {}", idx),
@@ -610,7 +610,7 @@ mod tests {
         let terminate_at = Timestamp::now();
         let agenda = AgendaCreate {
             title: "Original".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         let agenda_id = repo.create_agenda(&agenda).await.expect("create agenda");
@@ -653,14 +653,14 @@ mod tests {
 
         // create multiple agendas with different statuses
         let stored_agenda = AgendaCreate {
-            title: "Stored agenda".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            title: "Pending agenda".to_string(),
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         let stored_id = repo
             .create_agenda(&stored_agenda)
             .await
-            .expect("create stored");
+            .expect("create pending");
 
         let ongoing_agenda = AgendaCreate {
             title: "Ongoing agenda".to_string(),
@@ -696,15 +696,15 @@ mod tests {
             _ => panic!("expected Ongoing status"),
         }
 
-        // query by "stored" status
+        // query by "pending" status
         let result = repo
-            .get_agendas_by_status(Some("stored"))
+            .get_agendas_by_status(Some("pending"))
             .await
             .expect("query by status");
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].id, stored_id);
-        assert_eq!(result[0].title, "Stored agenda");
+        assert_eq!(result[0].title, "Pending agenda");
     }
 
     #[tokio::test]
@@ -717,7 +717,7 @@ mod tests {
         // create multiple agendas with different statuses
         let agenda1 = AgendaCreate {
             title: "Agenda 1".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         repo.create_agenda(&agenda1).await.expect("create agenda1");
@@ -761,9 +761,9 @@ mod tests {
         };
         repo.create_agenda(&agenda).await.expect("create agenda");
 
-        // query by non-matching status "stored"
+        // query by non-matching status "pending"
         let result = repo
-            .get_agendas_by_status(Some("stored"))
+            .get_agendas_by_status(Some("pending"))
             .await
             .expect("query by status");
 
@@ -817,7 +817,7 @@ mod tests {
 
         let agenda_before = AgendaCreate {
             title: "Before".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at: t0,
         };
         repo.create_agenda(&agenda_before)
@@ -863,7 +863,7 @@ mod tests {
 
         let agenda_start = AgendaCreate {
             title: "At start".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at: start,
         };
         let start_id = repo
@@ -937,7 +937,7 @@ mod tests {
         let terminate_at = Timestamp::now();
         let agenda1 = AgendaCreate {
             title: "Same Title".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         let id1 = repo.create_agenda(&agenda1).await.expect("create agenda1");
@@ -968,7 +968,7 @@ mod tests {
         let terminate_at = Timestamp::now();
         let agenda = AgendaCreate {
             title: "Existing".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         repo.create_agenda(&agenda).await.expect("create agenda");
@@ -988,15 +988,15 @@ mod tests {
 
         let terminate_at = Timestamp::now();
         let agenda1 = AgendaCreate {
-            title: "Stored 1".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            title: "Pending 1".to_string(),
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         repo.create_agenda(&agenda1).await.expect("create agenda1");
 
         let agenda2 = AgendaCreate {
-            title: "Stored 2".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            title: "Pending 2".to_string(),
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         repo.create_agenda(&agenda2).await.expect("create agenda2");
@@ -1009,9 +1009,9 @@ mod tests {
         repo.create_agenda(&agenda3).await.expect("create agenda3");
 
         let stored_count = repo
-            .count_agendas_by_status(Some("stored"))
+            .count_agendas_by_status(Some("pending"))
             .await
-            .expect("count stored");
+            .expect("count pending");
         let ongoing_count = repo
             .count_agendas_by_status(Some("ongoing"))
             .await
@@ -1029,7 +1029,7 @@ mod tests {
         let terminate_at = Timestamp::now();
         let agenda1 = AgendaCreate {
             title: "A".to_string(),
-            agenda_status: AgendaStatus::Stored,
+            agenda_status: AgendaStatus::Pending,
             terminate_at,
         };
         repo.create_agenda(&agenda1).await.expect("create agenda1");
