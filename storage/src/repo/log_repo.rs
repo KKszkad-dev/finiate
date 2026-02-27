@@ -4,6 +4,8 @@ use jiff::Timestamp;
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 
+use crate::repo::repo_error::RepoError;
+
 #[derive(FromRow)]
 struct DbLog {
     id: String,
@@ -13,13 +15,40 @@ struct DbLog {
     agenda_id: String,
 }
 
+impl DbLog {
+    fn to_log(&self) -> Result<Log, RepoError> {
+        Ok(Log {
+            id: Uuid::parse_str(&self.id)?,
+            agenda_id: Uuid::parse_str(&self.agenda_id)?,
+            content: self.content.clone(),
+            create_at: Timestamp::from_millisecond(self.create_at)?,
+            log_type: match self.log_type.as_str() {
+                "activate" => LogType::Activate,
+                "put_off" => LogType::PutOff,
+                "terminate" => LogType::Terminate,
+                "common_log" => LogType::CommonLog,
+                _ => {
+                    return Err(sqlx::Error::ColumnDecode {
+                        index: "agenda_status".to_string(),
+                        source: Box::new(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "invalid agenda_status in database",
+                        )),
+                    }
+                    .into());
+                }
+            },
+        })
+    }
+}
+
 pub struct SqliteLogRepo {
     pub pool: SqlitePool,
 }
 
 #[async_trait]
 impl LogRepo for SqliteLogRepo {
-    type Error = sqlx::Error;
+    type Error = RepoError;
 
     async fn create_log(&self, new_log: &LogCreate) -> Result<Uuid, Self::Error> {
         let uuid = Uuid::now_v7();
@@ -55,21 +84,8 @@ impl LogRepo for SqliteLogRepo {
 
         let logs = rows
             .into_iter()
-            .map(|row| Log {
-                id: Uuid::parse_str(&row.id).expect("valid UUID in DB"),
-                agenda_id: Uuid::parse_str(&row.agenda_id).expect("valid UUID in DB"),
-                content: row.content,
-                create_at: Timestamp::from_millisecond(row.create_at)
-                    .expect("invalid timestamp in database"),
-                log_type: match row.log_type.as_str() {
-                    "activate" => LogType::Activate,
-                    "put_off" => LogType::PutOff,
-                    "terminate" => LogType::Terminate,
-                    "common_log" => LogType::CommonLog,
-                    _ => panic!("invalid log type in DB"),
-                },
-            })
-            .collect();
+            .map(|row| row.to_log())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(logs)
     }
@@ -88,21 +104,8 @@ impl LogRepo for SqliteLogRepo {
 
         let logs = rows
             .into_iter()
-            .map(|row| Log {
-                id: Uuid::parse_str(&row.id).expect("valid UUID in DB"),
-                agenda_id: Uuid::parse_str(&row.agenda_id).expect("valid UUID in DB"),
-                content: row.content,
-                create_at: Timestamp::from_millisecond(row.create_at)
-                    .expect("invalid timestamp in database"),
-                log_type: match row.log_type.as_str() {
-                    "activate" => LogType::Activate,
-                    "put_off" => LogType::PutOff,
-                    "terminate" => LogType::Terminate,
-                    "common_log" => LogType::CommonLog,
-                    _ => panic!("invalid log type in DB"),
-                },
-            })
-            .collect();
+            .map(|row| row.to_log())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(logs)
     }
