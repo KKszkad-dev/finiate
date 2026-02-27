@@ -1466,6 +1466,7 @@ dependencies = [
  "domain",
  "jiff",
  "sqlx",
+ "thiserror",
  "tokio",
  "uuid",
 ]

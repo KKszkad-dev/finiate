@@ -10,3 +10,4 @@ tokio = { version = "1.49.0", features = ["full"] }
 uuid = { version = "1.20.0", features = ["v7"] }
 domain = { path = "../domain" }
 async-trait = "0.1.89"
+thiserror = "2.0.18"
