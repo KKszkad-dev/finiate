@@ -4,6 +4,8 @@ use jiff::Timestamp;
 use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 
+use crate::repo::repo_error::RepoError;
+
 #[derive(FromRow)]
 struct DbAgenda {
     id: String,
@@ -13,19 +15,48 @@ struct DbAgenda {
     terminate_at: i64,
 }
 
+impl DbAgenda {
+    fn to_agenda(&self) -> Result<Agenda, RepoError> {
+        Ok(Agenda {
+            id: Uuid::parse_str(&self.id)?,
+            title: self.title.clone(),
+            agenda_status: match self.agenda_status.as_str() {
+                "pending" => AgendaStatus::Pending,
+                "ongoing" => AgendaStatus::Ongoing,
+                "terminated" => AgendaStatus::Terminated,
+                _ => {
+                    return Err(sqlx::Error::ColumnDecode {
+                        index: "agenda_status".to_string(),
+                        source: Box::new(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "invalid agenda_status in database",
+                        )),
+                    }
+                    .into());
+                }
+            },
+            initiate_at: Timestamp::from_millisecond(self.initiate_at)?,
+            terminate_at: Timestamp::from_millisecond(self.terminate_at)?,
+        })
+    }
+}
+
 pub struct SqliteAgendaRepo {
     pub pool: SqlitePool,
 }
 
 #[async_trait]
 impl AgendaRepo for SqliteAgendaRepo {
-    type Error = sqlx::Error;
+    type Error = RepoError;
 
     async fn create_agenda(&self, agenda: &AgendaCreate) -> Result<Uuid, Self::Error> {
         let uuid = Uuid::now_v7();
         let timestamp = Timestamp::now().as_millisecond();
         sqlx::query(
-            "INSERT INTO agenda (id, title, agenda_status, initiate_at, terminate_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO agenda
+            (id, title, agenda_status, initiate_at, terminate_at)
+            VALUES
+            (?, ?, ?, ?, ?)",
         )
         .bind(uuid.to_string())
         .bind(&agenda.title)
@@ -90,20 +121,12 @@ impl AgendaRepo for SqliteAgendaRepo {
             .fetch_optional(&self.pool)
             .await?;
 
-        Ok(row.map(|db_agenda| Agenda {
-            id: Uuid::parse_str(&db_agenda.id).expect("invalid uuid in database"),
-            title: db_agenda.title,
-            agenda_status: match db_agenda.agenda_status.as_str() {
-                "pending" => AgendaStatus::Pending,
-                "ongoing" => AgendaStatus::Ongoing,
-                "terminated" => AgendaStatus::Terminated,
-                _ => panic!("invalid agenda_status in database"),
-            },
-            initiate_at: Timestamp::from_millisecond(db_agenda.initiate_at)
-                .expect("invalid initiate_at in database"),
-            terminate_at: Timestamp::from_millisecond(db_agenda.terminate_at)
-                .expect("invalid terminate_at in database"),
-        }))
+        let db_aegnda = match row {
+            Some(db_agenda) => db_agenda,
+            None => return Ok(None),
+        };
+        let agenda = db_aegnda.to_agenda()?;
+        Ok(Some(agenda))
     }
 
     async fn get_agendas_by_title(&self, title: &str) -> Result<Vec<Agenda>, Self::Error> {
@@ -112,23 +135,11 @@ impl AgendaRepo for SqliteAgendaRepo {
             .fetch_all(&self.pool)
             .await?;
 
-        Ok(rows
+        let agendas = rows
             .into_iter()
-            .map(|db_agenda| Agenda {
-                id: Uuid::parse_str(&db_agenda.id).expect("invalid uuid in database"),
-                title: db_agenda.title,
-                agenda_status: match db_agenda.agenda_status.as_str() {
-                    "pending" => AgendaStatus::Pending,
-                    "ongoing" => AgendaStatus::Ongoing,
-                    "terminated" => AgendaStatus::Terminated,
-                    _ => panic!("invalid agenda_status in database"),
-                },
-                initiate_at: Timestamp::from_millisecond(db_agenda.initiate_at)
-                    .expect("invalid initiate_at in database"),
-                terminate_at: Timestamp::from_millisecond(db_agenda.terminate_at)
-                    .expect("invalid terminate_at in database"),
-            })
-            .collect())
+            .map(|db_agenda| db_agenda.to_agenda())
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(agendas)
     }
 
     async fn get_agendas_by_status(
@@ -146,23 +157,11 @@ impl AgendaRepo for SqliteAgendaRepo {
                 .await?
         };
 
-        Ok(rows
+        let agendas = rows
             .into_iter()
-            .map(|db_agenda| Agenda {
-                id: Uuid::parse_str(&db_agenda.id).expect("invalid uuid in database"),
-                title: db_agenda.title,
-                agenda_status: match db_agenda.agenda_status.as_str() {
-                    "pending" => AgendaStatus::Pending,
-                    "ongoing" => AgendaStatus::Ongoing,
-                    "terminated" => AgendaStatus::Terminated,
-                    _ => panic!("invalid agenda_status in database"),
-                },
-                initiate_at: Timestamp::from_millisecond(db_agenda.initiate_at)
-                    .expect("invalid initiate_at in database"),
-                terminate_at: Timestamp::from_millisecond(db_agenda.terminate_at)
-                    .expect("invalid terminate_at in database"),
-            })
-            .collect())
+            .map(|db_agenda| db_agenda.to_agenda())
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(agendas)
     }
     async fn count_agendas_by_status(&self, status: Option<&str>) -> Result<u64, Self::Error> {
         let count: i64 = if let Some(status) = status {
@@ -190,23 +189,11 @@ impl AgendaRepo for SqliteAgendaRepo {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows
+        let agendas = rows
             .into_iter()
-            .map(|db_agenda| Agenda {
-                id: Uuid::parse_str(&db_agenda.id).expect("invalid uuid in database"),
-                title: db_agenda.title,
-                agenda_status: match db_agenda.agenda_status.as_str() {
-                    "pending" => AgendaStatus::Pending,
-                    "ongoing" => AgendaStatus::Ongoing,
-                    "terminated" => AgendaStatus::Terminated,
-                    _ => panic!("invalid agenda_status in database"),
-                },
-                initiate_at: Timestamp::from_millisecond(db_agenda.initiate_at)
-                    .expect("invalid initiate_at in database"),
-                terminate_at: Timestamp::from_millisecond(db_agenda.terminate_at)
-                    .expect("invalid terminate_at in database"),
-            })
-            .collect())
+            .map(|db_agenda| db_agenda.to_agenda())
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(agendas)
     }
 }
 
@@ -222,7 +209,7 @@ mod tests {
             .max_connections(1)
             .connect("sqlite::memory:")
             .await
-            .expect("create in-memory sqlite pool");
+            .expect("pool connection error");
 
         sqlx::query("PRAGMA foreign_keys = ON;")
             .execute(&pool)
